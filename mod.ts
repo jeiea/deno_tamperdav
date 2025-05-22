@@ -1,6 +1,6 @@
 import { parseArgs } from "jsr:@std/cli/parse-args";
+import { join } from "jsr:@std/path/join";
 import { DavServer } from "./src/dav_server.ts";
-import { join } from "./src/deps.ts";
 
 if (import.meta.main) {
   main();

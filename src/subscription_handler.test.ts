@@ -1,7 +1,7 @@
+import { assertEquals } from "jsr:@std/assert";
 import { resolve } from "jsr:@std/path";
 import { returnsNext, stub } from "jsr:@std/testing/mock";
 import { FakeTime } from "jsr:@std/testing/time";
-import { assertEquals } from "../tool/deps.ts";
 import { FsSubscriber, toSubscription } from "./subscription_handler.ts";
 
 Deno.test("Given plain request", async (test) => {

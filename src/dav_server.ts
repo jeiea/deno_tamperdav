@@ -1,4 +1,5 @@
 import { delay } from "jsr:@std/async/delay";
+import { resolve } from "jsr:@std/path/resolve";
 import {
   del,
   editor,
@@ -10,7 +11,6 @@ import {
   put,
   subscribe,
 } from "./dav_server/handlers.ts";
-import { resolve } from "./deps.ts";
 import { FsSubscriber } from "./subscription_handler.ts";
 
 type DavServerOptions = {

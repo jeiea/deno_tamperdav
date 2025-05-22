@@ -1,7 +1,7 @@
+import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
 import { deadline } from "jsr:@std/async/deadline";
 import { delay } from "jsr:@std/async/delay";
 import { join } from "jsr:@std/path";
-import { assertEquals, assertStringIncludes } from "../tool/deps.ts";
 import { DavServer } from "./dav_server.ts";
 
 Deno.test("Given a server with files", async (test) => {
