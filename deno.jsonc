@@ -3,7 +3,7 @@
     "lineWidth": 100
   },
   "tasks": {
-    "run": "deno run -A mod.ts --path=dav --meta-touch --debug"
+    "run": "deno run --unstable-no-legacy-abort -A mod.ts --path=dav --meta-touch --debug"
   },
   "compilerOptions": {
     "noUncheckedIndexedAccess": true,
