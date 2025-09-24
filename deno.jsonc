@@ -3,6 +3,13 @@
     "lineWidth": 100
   },
   "tasks": {
+    "hooks:install": "deno run --allow-read=deno.json,deno.jsonc,.git/hooks/ --allow-write=.git/hooks/ jsr:@hongminhee/deno-task-hooks",
+    "hooks:pre-commit": {
+      "dependencies": ["fmt", "lint", "check"]
+    },
+    "fmt": "deno fmt",
+    "lint": "deno lint",
+    "check": "deno check",
     "run": "deno run --unstable-no-legacy-abort -A mod.ts --path=dav --meta-touch --debug"
   },
   "compilerOptions": {
