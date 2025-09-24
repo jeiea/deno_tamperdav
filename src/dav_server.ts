@@ -1,5 +1,5 @@
-import { delay } from "jsr:@std/async/delay";
-import { resolve } from "jsr:@std/path/resolve";
+import { delay } from "@std/async/delay";
+import { resolve } from "@std/path/resolve";
 import {
   del,
   editor,

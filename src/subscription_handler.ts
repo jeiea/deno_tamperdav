@@ -1,6 +1,6 @@
-import { debounce } from "jsr:@std/async/debounce";
-import { relative, resolve } from "jsr:@std/path";
-import { normalize } from "jsr:@std/path/posix";
+import { debounce } from "@std/async/debounce";
+import { relative, resolve } from "@std/path";
+import { normalize } from "@std/path/posix";
 
 export type SubscriptionRequest = {
   /** relative path */

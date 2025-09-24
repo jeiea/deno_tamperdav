@@ -1,5 +1,5 @@
-import { zip } from "jsr:@std/collections/zip";
-import { toFileUrl } from "jsr:@std/path/to-file-url";
+import { zip } from "@std/collections/zip";
+import { toFileUrl } from "@std/path/to-file-url";
 
 export async function arrayToXml(
   { root, files, cursor }: {

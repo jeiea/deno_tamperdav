@@ -1,5 +1,5 @@
-import { parseArgs } from "jsr:@std/cli/parse-args";
-import { basename, dirname, join } from "jsr:@std/path";
+import { parseArgs } from "@std/cli/parse-args";
+import { basename, dirname, join } from "@std/path";
 
 if (import.meta.main) {
   main();

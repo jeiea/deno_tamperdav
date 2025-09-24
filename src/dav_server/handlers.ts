@@ -1,6 +1,6 @@
-import { open } from "https://deno.land/x/open@v1.0.0/index.ts";
-import { expandGlob } from "jsr:@std/fs";
-import { join, resolve } from "jsr:@std/path";
+import { open } from "@opensrc/deno-open";
+import { expandGlob } from "@std/fs";
+import { join, resolve } from "@std/path";
 import { arrayToXml } from "../array_to_xml.ts";
 import { FsSubscriber, toSubscription } from "../subscription_handler.ts";
 

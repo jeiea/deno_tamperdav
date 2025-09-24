@@ -1,6 +1,6 @@
-import { assertEquals } from "jsr:@std/assert";
-import { copy } from "jsr:@std/fs";
-import { basename, join, resolve } from "jsr:@std/path";
+import { assertEquals } from "@std/assert";
+import { copy } from "@std/fs";
+import { basename, join, resolve } from "@std/path";
 import { pruneScripts } from "./prune_scripts.ts";
 
 Deno.test("Given empty directory", async (test) => {
