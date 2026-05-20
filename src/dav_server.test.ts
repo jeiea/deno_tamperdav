@@ -2,6 +2,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { deadline } from "@std/async/deadline";
 import { delay } from "@std/async/delay";
 import { join } from "@std/path";
+import { stub } from "@std/testing/mock";
 import { DavServer } from "./dav_server.ts";
 
 Deno.test("Given a server with files", async (test) => {
@@ -77,3 +78,353 @@ Deno.test("Given fresh server", async (test) => {
   await server.shutdown();
   await Deno.remove(root, { recursive: true });
 });
+
+Deno.test("OPTIONS returns Tampermonkey WebDAV capability headers", async () => {
+  await withDavServer({}, async ({ request }) => {
+    const response = await request("/", { method: "OPTIONS" });
+
+    assertEquals(response.status, 200);
+    assertEquals(response.statusText, "OK");
+    assertEquals(
+      response.headers.get("Access-Control-Allow-Methods"),
+      [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT",
+        "PROPFIND",
+        "MKCOL",
+        "DELETE",
+        "SUBSCRIBE",
+      ].join(","),
+    );
+    assertEquals(response.headers.get("Access-Control-Allow-Credentials"), "true");
+    assertEquals(
+      response.headers.get("Access-Control-Allow-Headers"),
+      "Authorization,User-Agent,Content-Type,Accept,Origin,X-Requested-With,Cursor",
+    );
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(
+      response.headers.get("Cache-Control"),
+      "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+    );
+    assertEquals(await response.text(), "");
+  });
+});
+
+Deno.test("unknown method returns 405 text response with WebDAV headers", async () => {
+  await withDavServer({}, async ({ request }) => {
+    const response = await request("/file.txt", { method: "UNKNOWN" });
+
+    assertEquals(response.status, 405);
+    assertEquals(response.statusText, "Method Not Allowed");
+    assertEquals(response.headers.get("Content-Type"), "text/plain");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(
+      response.headers.get("Cache-Control"),
+      "no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+    );
+    assertEquals(await response.text(), "Unknown method: UNKNOWN");
+  });
+});
+
+Deno.test("authentication rejects missing credentials", async () => {
+  await withDavServer({ username: "alice", password: "secret" }, async ({ request }) => {
+    const response = await request("/file.txt", { method: "GET" });
+
+    assertEquals(response.status, 401);
+    assertEquals(response.statusText, "Unauthorized");
+    assertEquals(response.headers.get("WWW-Authenticate"), 'Basic realm="Enter credentials"');
+    assertEquals(await response.text(), "Unauthorized");
+  });
+});
+
+Deno.test("authentication preserves current non-decoded Basic credentials behavior", async () => {
+  await withDavServer({ username: "alice", password: "secret" }, async ({ root, request }) => {
+    await Deno.writeTextFile(join(root, "file.txt"), "Hello");
+
+    // TODO: confirm whether this behavior is still required for Tampermonkey compatibility.
+    const accepted = await request("/file.txt", {
+      method: "GET",
+      headers: { authorization: "Basic alice:secret" },
+    });
+    const rejected = await request("/file.txt", {
+      method: "GET",
+      headers: { authorization: `Basic ${btoa("alice:secret")}` },
+    });
+
+    assertEquals(accepted.status, 200);
+    assertEquals(await accepted.text(), "Hello");
+    assertEquals(rejected.status, 401);
+    assertEquals(await rejected.text(), "Unauthorized");
+  });
+});
+
+Deno.test("GET returns an existing file as octet stream", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    await Deno.writeTextFile(join(root, "file.txt"), "Hello");
+
+    const response = await request("/file.txt", { method: "GET" });
+
+    assertEquals(response.status, 200);
+    assertEquals(response.statusText, "OK");
+    assertEquals(response.headers.get("Content-Type"), "application/octet-stream");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(await response.text(), "Hello");
+  });
+});
+
+Deno.test("GET returns 404 for a missing file", async () => {
+  await withDavServer({}, async ({ request }) => {
+    const response = await request("/missing.txt", { method: "GET" });
+
+    assertEquals(response.status, 404);
+    assertEquals(response.statusText, "Not Found");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(await response.text(), "");
+  });
+});
+
+Deno.test("GET preserves current directory response", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    await Deno.mkdir(join(root, "dir"));
+
+    const response = await request("/dir", { method: "GET" });
+
+    // TODO: confirm whether this behavior is still required for Tampermonkey compatibility.
+    assertEquals(response.status, 200);
+    assertEquals(response.statusText, "OK");
+    assertEquals(response.headers.get("Content-Type"), "application/octet-stream");
+    assertEquals(response.headers.get("DAV"), "1");
+    await response.body?.cancel();
+  });
+});
+
+Deno.test("HEAD returns file metadata headers without a body", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    await Deno.writeTextFile(join(root, "file.txt"), "Hello");
+
+    const response = await request("/file.txt", { method: "HEAD" });
+
+    assertEquals(response.status, 200);
+    assertEquals(response.statusText, "OK");
+    assertEquals(response.headers.get("Content-Length"), "5");
+    assertEquals(response.headers.get("Content-Type"), "application/octet-stream");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(await response.text(), "");
+  });
+});
+
+Deno.test("HEAD returns 404 for a missing file", async () => {
+  await withDavServer({}, async ({ request }) => {
+    const response = await request("/missing.txt", { method: "HEAD" });
+
+    assertEquals(response.status, 404);
+    assertEquals(response.statusText, "Not Found");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(await response.text(), "");
+  });
+});
+
+Deno.test("PUT creates a file and accepts x-oc-mtime", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    const response = await request("/file.txt", {
+      method: "PUT",
+      body: "Hello",
+      headers: { "x-oc-mtime": "1700000000" },
+    });
+
+    const stat = await Deno.stat(join(root, "file.txt"));
+    assertEquals(response.status, 200);
+    assertEquals(response.statusText, "OK");
+    assertEquals(response.headers.get("X-OC-Mtime"), "accepted");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(await response.text(), "");
+    assertEquals(await Deno.readTextFile(join(root, "file.txt")), "Hello");
+    assertEquals(Math.floor((stat.mtime?.getTime() ?? 0) / 1000), 1700000000);
+  });
+});
+
+Deno.test("PUT overwrites an existing file", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    await Deno.writeTextFile(join(root, "file.txt"), "Before");
+
+    const response = await request("/file.txt", { method: "PUT", body: "After" });
+
+    assertEquals(response.status, 200);
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(await response.text(), "");
+    assertEquals(await Deno.readTextFile(join(root, "file.txt")), "After");
+  });
+});
+
+Deno.test("DELETE removes an existing file", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    const file = join(root, "file.txt");
+    await Deno.writeTextFile(file, "Hello");
+
+    const response = await request("/file.txt", { method: "DELETE" });
+
+    assertEquals(response.status, 204);
+    assertEquals(response.statusText, "No Content");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(await response.text(), "");
+    await assertNotFound(file);
+  });
+});
+
+Deno.test("DELETE returns 404 for a missing file", async () => {
+  await withDavServer({}, async ({ request }) => {
+    const response = await request("/missing.txt", { method: "DELETE" });
+
+    assertEquals(response.status, 404);
+    assertEquals(response.statusText, "Not Found");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(await response.text(), "");
+  });
+});
+
+Deno.test("MKCOL creates a collection and returns multistatus XML", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    const response = await request("/new-dir", { method: "MKCOL" });
+    const xml = await response.text();
+
+    assertEquals(response.status, 207);
+    assertEquals(response.statusText, "Multi-Status");
+    assertEquals(response.headers.get("Content-Type"), "application/xml; charset=utf-8");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals((await Deno.stat(join(root, "new-dir"))).isDirectory, true);
+    assertMultistatusXml(xml);
+    assertStringIncludes(xml, "<d:href>/new-dir</d:href>");
+    assertStringIncludes(xml, "<d:resourcetype><d:collection/></d:resourcetype>");
+    assertStringIncludes(xml, "<d:getcontentlength />");
+  });
+});
+
+Deno.test("MKCOL returns XML error when collection already exists", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    await Deno.mkdir(join(root, "new-dir"));
+
+    const response = await request("/new-dir", { method: "MKCOL" });
+
+    assertEquals(response.status, 405);
+    assertEquals(response.statusText, "Method Not Allowed");
+    assertEquals(response.headers.get("Content-Type"), "application/xml; charset=utf-8");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertEquals(
+      await response.text(),
+      '<d:error xmlns:d="DAV:" xmlns:td="http://dav.tampermonkey.net/ns"><td:exception>MethodNotAllowed</td:exception><td:message>The resource you tried to create already exists</td:message></d:error>',
+    );
+  });
+});
+
+Deno.test("PROPFIND depth 0 returns only the requested collection", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    await Deno.mkdir(join(root, "dir"));
+    await Deno.writeTextFile(join(root, "dir", "file.txt"), "Hello");
+
+    const response = await request("/dir", {
+      method: "PROPFIND",
+      headers: { depth: "0" },
+    });
+    const xml = await response.text();
+
+    assertEquals(response.status, 207);
+    assertEquals(response.statusText, "Multi-Status");
+    assertEquals(response.headers.get("Content-Type"), "application/xml; charset=utf-8");
+    assertEquals(response.headers.get("DAV"), "1");
+    assertMultistatusXml(xml);
+    assertStringIncludes(xml, "<d:href>/dir</d:href>");
+    assertEquals(xml.includes("<d:href>/dir/file.txt</d:href>"), false);
+  });
+});
+
+Deno.test("debug verbose logs request and response details without sensitive headers", async () => {
+  const logs: string[] = [];
+  const debug = stub(console, "debug", (message?: unknown) => {
+    logs.push(`${message}`);
+  });
+
+  try {
+    await withDavServer(
+      { debug: true, verbose: true, username: "alice", password: "secret" },
+      async ({ request }) => {
+        const response = await request("/file.txt", {
+          method: "UNKNOWN",
+          headers: {
+            authorization: "Basic alice:secret",
+            cursor: "123",
+          },
+        });
+        await response.text();
+        await delay(0);
+      },
+    );
+  } finally {
+    debug.restore();
+  }
+
+  const log = logs.join("\n");
+  assertStringIncludes(log, "UNKNOWN");
+  assertStringIncludes(log, "/file.txt");
+  assertStringIncludes(log, "405 Method Not Allowed");
+  assertStringIncludes(log, "cursor: 123");
+  assertStringIncludes(log, "Unknown method: UNKNOWN");
+  assertEquals(log.toLowerCase().includes("authorization"), false);
+  assertEquals(log.includes("alice"), false);
+  assertEquals(log.includes("secret"), false);
+});
+
+type TestServer = {
+  root: string;
+  origin: string;
+  request: (path: string, init?: RequestInit) => Promise<Response>;
+};
+
+async function withDavServer(
+  args: ConstructorParameters<typeof DavServer>[1],
+  fn: (server: TestServer) => Promise<void>,
+) {
+  const root = await Deno.makeTempDir();
+  const handler = new DavServer(root, args);
+  const server = Deno.serve({ port: 0 }, handler.logAndHandleRequest);
+  const { port } = server.addr;
+  const origin = `http://localhost:${port}`;
+
+  try {
+    await fn({
+      root,
+      origin,
+      request: (path, init) => fetch(`${origin}${path}`, init),
+    });
+  } finally {
+    await server.shutdown();
+    handler[Symbol.dispose]();
+    await Deno.remove(root, { recursive: true });
+  }
+}
+
+function assertMultistatusXml(xml: string) {
+  assertStringIncludes(
+    xml,
+    '<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" xmlns:td="http://dav.tampermonkey.net/ns">',
+  );
+  assertStringIncludes(xml, "</d:multistatus>");
+  assertStringIncludes(xml, "<d:response>");
+  assertStringIncludes(xml, "<d:propstat>");
+  assertStringIncludes(xml, "<d:prop>");
+  assertStringIncludes(xml, "<d:getlastmodified>");
+  assertStringIncludes(xml, "<d:status>HTTP/1.1 200 OK</d:status>");
+}
+
+async function assertNotFound(path: string) {
+  try {
+    await Deno.stat(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return;
+    }
+    throw error;
+  }
+  throw new Error(`Expected ${path} to be missing`);
+}

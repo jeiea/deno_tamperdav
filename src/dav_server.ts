@@ -1,4 +1,3 @@
-import { delay } from "@std/async/delay";
 import { resolve } from "@std/path/resolve";
 import {
   del,
@@ -123,7 +122,14 @@ export class DavServer implements Disposable {
       return;
     }
 
-    const maybeResponse = await Promise.race([responsePromise, delay(100)]);
+    const pending = Symbol("pending");
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<typeof pending>((resolve) => {
+      timeoutId = setTimeout(() => resolve(pending), 100);
+    });
+
+    const maybeResponse = await Promise.race([responsePromise, timeoutPromise]);
+    clearTimeout(timeoutId);
 
     const requestLog = getRequestLog(request, { verbose: this.args.verbose });
     if (maybeResponse instanceof Response) {
@@ -148,7 +154,7 @@ function getRequestLog(request: Request, { verbose }: { verbose?: boolean }) {
   request.headers.forEach((v, k) => {
     if (
       k.match(
-        /accept|connection|content-type|dnt|host|origin|sec-|user-agent/i,
+        /accept|authorization|connection|content-type|dnt|host|origin|sec-|user-agent/i,
       )
     ) {
       return;

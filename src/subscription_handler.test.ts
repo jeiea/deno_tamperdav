@@ -88,6 +88,106 @@ Deno.test("Given a subscription", async (test) => {
   time.restore();
 });
 
+Deno.test("subscription rejects immediately when the signal is already aborted", async () => {
+  const controller = new AbortController();
+  controller.abort("stopped");
+
+  using subscriber = new FsSubscriber(".");
+
+  const reason = await subscriber
+    .subscribe({
+      path: "test",
+      timeoutSeconds: 90,
+      depth: 1,
+      signal: controller.signal,
+    })
+    .then(() => "resolved", (reason) => reason);
+
+  assertEquals(reason, "stopped");
+});
+
+Deno.test("disposing a subscriber rejects pending subscriptions", async () => {
+  const time = new FakeTime();
+  const watcherMock = new MockFsWatcher();
+  const stubbed = stub(Deno, "watchFs", returnsNext([watcherMock]));
+  const subscriber = new FsSubscriber(".");
+  const subscription = subscriber.subscribe({
+    path: "test",
+    timeoutSeconds: 90,
+    depth: 1,
+    signal: new AbortController().signal,
+  });
+  const rejection = subscription.then(() => null, (error) => error);
+
+  subscriber[Symbol.dispose]();
+  await time.runMicrotasks();
+
+  const error = await rejection;
+  assertEquals(error instanceof Error, true);
+  assertEquals(error.message, "aborted");
+  assertEquals(watcherMock.closed, true);
+
+  stubbed.restore();
+  time.restore();
+});
+
+Deno.test("depth 0 preserves current recursive watch behavior", async () => {
+  const time = new FakeTime();
+  const watcherMock = new MockFsWatcher();
+  let options: { recursive?: boolean } | undefined;
+  const stubbed = stub(Deno, "watchFs", (_path, watchOptions) => {
+    options = watchOptions;
+    return watcherMock;
+  });
+
+  using subscriber = new FsSubscriber(".");
+  const subscription = subscriber.subscribe({
+    path: "test",
+    timeoutSeconds: 90,
+    depth: 0,
+    signal: new AbortController().signal,
+  });
+  await time.runMicrotasks();
+
+  // TODO: confirm whether this behavior is still required for Tampermonkey compatibility.
+  assertEquals(options, { recursive: true });
+
+  time.tick(90 * 1000);
+  await time.runMicrotasks();
+  await subscription;
+
+  stubbed.restore();
+  time.restore();
+});
+
+Deno.test("non-zero depth watches only the requested path non-recursively", async () => {
+  const time = new FakeTime();
+  const watcherMock = new MockFsWatcher();
+  let options: { recursive?: boolean } | undefined;
+  const stubbed = stub(Deno, "watchFs", (_path, watchOptions) => {
+    options = watchOptions;
+    return watcherMock;
+  });
+
+  using subscriber = new FsSubscriber(".");
+  const subscription = subscriber.subscribe({
+    path: "test",
+    timeoutSeconds: 90,
+    depth: 1,
+    signal: new AbortController().signal,
+  });
+  await time.runMicrotasks();
+
+  assertEquals(options, { recursive: false });
+
+  time.tick(90 * 1000);
+  await time.runMicrotasks();
+  await subscription;
+
+  stubbed.restore();
+  time.restore();
+});
+
 Deno.test("When subscribe 'test' directory", async (test) => {
   const time = new FakeTime();
   const watcherMock = new MockFsWatcher();
@@ -194,6 +294,7 @@ Deno.test("Given a directory", async (test) => {
 
 class MockFsWatcher implements Deno.FsWatcher {
   #resolver = Promise.withResolvers<Deno.FsEvent>();
+  closed = false;
 
   async *[Symbol.asyncIterator](): AsyncIterableIterator<Deno.FsEvent> {
     while (true) {
@@ -206,6 +307,8 @@ class MockFsWatcher implements Deno.FsWatcher {
     this.#resolver = Promise.withResolvers<Deno.FsEvent>();
   }
 
-  close = () => {};
+  close = () => {
+    this.closed = true;
+  };
   [Symbol.dispose] = this.close;
 }
