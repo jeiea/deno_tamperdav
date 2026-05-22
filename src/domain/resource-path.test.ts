@@ -7,9 +7,9 @@ Deno.test("toResourcePath keeps the URL pathname as the current resource identit
   });
 });
 
-Deno.test("toResourcePath preserves the current root escape surface", () => {
-  // TODO: confirm whether this behavior is still required for Tampermonkey compatibility.
-  assertEquals(toResourcePath(new URL("http://localhost:7000/../outside.user.js")), {
+Deno.test("toResourcePath marks raw root escape attempts", () => {
+  assertEquals(toResourcePath("http://localhost:7000/../outside.user.js"), {
     pathname: "/outside.user.js",
+    rootEscaped: true,
   });
 });

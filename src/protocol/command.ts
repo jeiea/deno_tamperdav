@@ -28,7 +28,7 @@ export type WebDavCommand =
 
 export function parseWebDavCommand(request: Request): WebDavCommand {
   const method = request.method.toUpperCase();
-  const path = toResourcePath(new URL(request.url));
+  const path = toResourcePath(request.url);
 
   switch (method) {
     case "OPTIONS":

@@ -1,29 +1,31 @@
 import { expandGlob } from "@std/fs";
-import { join, resolve } from "@std/path";
+import { isAbsolute, relative, resolve } from "@std/path";
 import { toFileUrl } from "@std/path/to-file-url";
+import type { ResourcePath } from "../domain/resource-path.ts";
 import type { MultistatusResource } from "../protocol/webdav-xml.ts";
 import type { ResourceStore } from "./resource-store.ts";
 
 export function createDenoFsResourceStore(root: string): ResourceStore {
+  const absoluteRoot = resolve(root);
+
   return {
     async list(path, { recursive }) {
-      const target = resolve(root, `.${path.pathname}`);
+      const target = resolveResourcePath(absoluteRoot, path);
       const files = await Array.fromAsync(expandGlob(`${target}${recursive ? "/**" : ""}`));
-      return await filesToResources({ root, files: files.map((file) => file.path) });
+      return await filesToResources({ root: absoluteRoot, files: files.map((file) => file.path) });
     },
 
     async read(path) {
-      // TODO: confirm whether this behavior is still required for Tampermonkey compatibility.
-      const file = await Deno.open(resolve(`${root}${path.pathname}`));
+      const file = await Deno.open(resolveResourcePath(absoluteRoot, path));
       return { body: file.readable };
     },
 
     stat(path) {
-      return Deno.stat(join(root, path.pathname));
+      return Deno.stat(resolveResourcePath(absoluteRoot, path));
     },
 
     async write({ path, body, mtimeSeconds, signal }) {
-      const filePath = join(root, path.pathname);
+      const filePath = resolveResourcePath(absoluteRoot, path);
       const file = await Deno.open(filePath, {
         create: true,
         truncate: true,
@@ -41,14 +43,29 @@ export function createDenoFsResourceStore(root: string): ResourceStore {
     },
 
     delete(path) {
-      return Deno.remove(join(root, path.pathname));
+      return Deno.remove(resolveResourcePath(absoluteRoot, path));
     },
 
     async makeCollection(path) {
-      await Deno.mkdir(join(root, path.pathname));
+      await Deno.mkdir(resolveResourcePath(absoluteRoot, path));
       return await this.list(path, { recursive: true });
     },
   };
+}
+
+function resolveResourcePath(root: string, path: ResourcePath) {
+  const target = resolve(root, `.${path.pathname}`);
+  const relativePath = relative(root, target);
+  if (
+    path.rootEscaped ||
+    relativePath === ".." ||
+    relativePath.startsWith("../") ||
+    relativePath.startsWith("..\\") ||
+    isAbsolute(relativePath)
+  ) {
+    throw new Deno.errors.NotFound("Resource path escapes root");
+  }
+  return target;
 }
 
 async function filesToResources(

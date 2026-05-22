@@ -185,6 +185,16 @@ Deno.test("GET returns 404 for a missing file", async () => {
   });
 });
 
+Deno.test("GET returns 404 for a raw root escape path", async () => {
+  await withDavServer({}, async ({ root, rawRequest }) => {
+    await Deno.writeTextFile(join(root, "outside.user.js"), "inside root");
+
+    const response = await rawRequest("/../outside.user.js");
+
+    assertStringIncludes(response, "HTTP/1.1 404 Not Found");
+  });
+});
+
 Deno.test("GET preserves current directory response", async () => {
   await withDavServer({}, async ({ root, request }) => {
     await Deno.mkdir(join(root, "dir"));
@@ -379,6 +389,7 @@ type TestServer = {
   root: string;
   origin: string;
   request: (path: string, init?: RequestInit) => Promise<Response>;
+  rawRequest: (path: string) => Promise<string>;
 };
 
 async function withDavServer(
@@ -396,6 +407,15 @@ async function withDavServer(
       root,
       origin,
       request: (path, init) => fetch(`${origin}${path}`, init),
+      rawRequest: async (path) => {
+        const conn = await Deno.connect({ hostname: "127.0.0.1", port });
+        await conn.write(
+          new TextEncoder().encode(
+            `GET ${path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n`,
+          ),
+        );
+        return await new Response(conn.readable).text();
+      },
     });
   } finally {
     await server.shutdown();
