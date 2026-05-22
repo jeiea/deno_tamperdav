@@ -9,6 +9,30 @@ export function isAuthorized(request: Request, { username, password }: BasicAuth
   }
 
   const auth = request.headers.get("authorization");
-  const [user, pass] = auth?.match("Basic (.*)")?.[1]?.split(":") ?? [];
-  return user == username && pass == password;
+  const decoded = decodeBasicCredentials(auth);
+  if (!decoded) {
+    return false;
+  }
+
+  const separator = decoded.indexOf(":");
+  if (separator < 0) {
+    return false;
+  }
+
+  const user = decoded.slice(0, separator);
+  const pass = decoded.slice(separator + 1);
+  return user === (username ?? "") && pass === (password ?? "");
+}
+
+function decodeBasicCredentials(authorization: string | null) {
+  const encoded = authorization?.match(/^Basic\s+(.+)$/i)?.[1];
+  if (!encoded) {
+    return null;
+  }
+
+  try {
+    return atob(encoded);
+  } catch {
+    return null;
+  }
 }

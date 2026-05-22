@@ -139,18 +139,17 @@ Deno.test("authentication rejects missing credentials", async () => {
   });
 });
 
-Deno.test("authentication preserves current non-decoded Basic credentials behavior", async () => {
+Deno.test("authentication accepts standard Base64 Basic credentials", async () => {
   await withDavServer({ username: "alice", password: "secret" }, async ({ root, request }) => {
     await Deno.writeTextFile(join(root, "file.txt"), "Hello");
 
-    // TODO: confirm whether this behavior is still required for Tampermonkey compatibility.
     const accepted = await request("/file.txt", {
       method: "GET",
-      headers: { authorization: "Basic alice:secret" },
+      headers: { authorization: `Basic ${btoa("alice:secret")}` },
     });
     const rejected = await request("/file.txt", {
       method: "GET",
-      headers: { authorization: `Basic ${btoa("alice:secret")}` },
+      headers: { authorization: "Basic alice:secret" },
     });
 
     assertEquals(accepted.status, 200);
@@ -362,7 +361,7 @@ Deno.test("debug verbose logs request and response details without sensitive hea
         const response = await request("/file.txt", {
           method: "UNKNOWN",
           headers: {
-            authorization: "Basic alice:secret",
+            authorization: `Basic ${btoa("alice:secret")}`,
             cursor: "123",
           },
         });
