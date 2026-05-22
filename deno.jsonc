@@ -16,7 +16,6 @@
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true
   },
-  "lock": false,
   "exclude": ["dav", "test/data"],
   "imports": {
     "@opensrc/deno-open": "jsr:@opensrc/deno-open@^1.0.0",
