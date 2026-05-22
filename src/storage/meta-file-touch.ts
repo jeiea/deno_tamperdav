@@ -13,8 +13,11 @@ export const touchMetaFiles: MetaFileToucher = async (relativePaths, { root, dat
       const absolute = resolve(root, meta);
       await Deno.utime(absolute, date, date);
       touched.push(meta);
-    } catch (_error) {
-      // TODO: confirm whether missing meta files should stay silently ignored.
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        continue;
+      }
+      throw error;
     }
   }
   return touched;

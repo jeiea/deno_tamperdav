@@ -194,18 +194,16 @@ Deno.test("GET returns 404 for a raw root escape path", async () => {
   });
 });
 
-Deno.test("GET preserves current directory response", async () => {
+Deno.test("GET returns 400 for a directory", async () => {
   await withDavServer({}, async ({ root, request }) => {
     await Deno.mkdir(join(root, "dir"));
 
     const response = await request("/dir", { method: "GET" });
 
-    // TODO: confirm whether this behavior is still required for Tampermonkey compatibility.
-    assertEquals(response.status, 200);
-    assertEquals(response.statusText, "OK");
-    assertEquals(response.headers.get("Content-Type"), "application/octet-stream");
+    assertEquals(response.status, 400);
+    assertEquals(response.statusText, "Bad Request");
     assertEquals(response.headers.get("DAV"), "1");
-    await response.body?.cancel();
+    assertEquals(await response.text(), "It is a directory");
   });
 });
 

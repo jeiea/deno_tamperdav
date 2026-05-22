@@ -34,6 +34,8 @@ export class FsSubscriber implements Subscriber {
       resolver.resolve(new Set());
     }, timeoutSeconds * 1000);
 
+    // Original TamperDAV ignores SUBSCRIBE Depth and recursively watches the target.
+    // Keep depth 0, Tampermonkey's default subscription depth, recursive for compatibility.
     this.#watch(path, { recursive: depth === 0 });
 
     try {

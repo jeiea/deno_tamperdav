@@ -150,7 +150,7 @@ Deno.test("depth 0 preserves current recursive watch behavior", async () => {
   });
   await time.runMicrotasks();
 
-  // TODO: confirm whether this behavior is still required for Tampermonkey compatibility.
+  // Original TamperDAV recursively watches SUBSCRIBE targets; keep the depth 0 default aligned.
   assertEquals(options, { recursive: true });
 
   time.tick(90 * 1000);

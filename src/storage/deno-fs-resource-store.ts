@@ -16,7 +16,13 @@ export function createDenoFsResourceStore(root: string): ResourceStore {
     },
 
     async read(path) {
-      const file = await Deno.open(resolveResourcePath(absoluteRoot, path));
+      const filePath = resolveResourcePath(absoluteRoot, path);
+      const stat = await Deno.stat(filePath);
+      if (stat.isDirectory) {
+        throw Object.assign(new Error("It is a directory"), { code: "EISDIR" });
+      }
+
+      const file = await Deno.open(filePath);
       return { body: file.readable };
     },
 
