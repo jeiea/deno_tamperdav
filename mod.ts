@@ -17,7 +17,7 @@ export async function main() {
       TD_PASSWORD: Deno.env.get("TD_PASSWORD"),
       TD_META_TOUCH: Deno.env.get("TD_META_TOUCH"),
       TD_NO_AUTH_WARNING: Deno.env.get("TD_NO_AUTH_WARNING"),
-      TD_DEBUG: Deno.env.get("TD_DEBUG"),
+      TD_LOG_LEVEL: Deno.env.get("TD_LOG_LEVEL"),
       TD_OPEN_IN_EDITOR: Deno.env.get("TD_OPEN_IN_EDITOR"),
     },
   });

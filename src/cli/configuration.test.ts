@@ -3,7 +3,7 @@ import { parseCliArgs, resolveCliCommand } from "./configuration.ts";
 
 Deno.test("CLI configuration resolves serve options from CLI and env", () => {
   const cliArgs = parseCliArgs([
-    "--debug",
+    "--log-level=verbose",
     "--host=0.0.0.0",
     "--port=8123",
     "--username=cli-user",
@@ -20,7 +20,7 @@ Deno.test("CLI configuration resolves serve options from CLI and env", () => {
       TD_PASSWORD: "env-password",
       TD_META_TOUCH: "true",
       TD_NO_AUTH_WARNING: "true",
-      TD_DEBUG: "false",
+      TD_LOG_LEVEL: "debug",
       TD_OPEN_IN_EDITOR: "code",
     },
   });
@@ -32,7 +32,7 @@ Deno.test("CLI configuration resolves serve options from CLI and env", () => {
     port: 8123,
     warnUnauthenticated: false,
     args: {
-      debug: true,
+      "log-level": "verbose",
       "meta-touch": true,
       "no-auth-warning": true,
       "open-in-editor": "code",
@@ -56,7 +56,7 @@ Deno.test("CLI configuration fills serve options from env", () => {
       TD_PASSWORD: "env-password",
       TD_META_TOUCH: "true",
       TD_NO_AUTH_WARNING: "true",
-      TD_DEBUG: "true",
+      TD_LOG_LEVEL: "debug",
       TD_OPEN_IN_EDITOR: "true",
     },
   });
@@ -72,7 +72,7 @@ Deno.test("CLI configuration fills serve options from env", () => {
   assertEquals(command.args.password, "env-password");
   assertEquals(command.args["meta-touch"], true);
   assertEquals(command.args["no-auth-warning"], true);
-  assertEquals(command.args.debug, true);
+  assertEquals(command.args["log-level"], "debug");
   assertEquals(command.args["open-in-editor"], true);
   assertEquals(command.warnUnauthenticated, false);
 });

@@ -13,9 +13,11 @@ Deno.test("CLI help prints usage and exits successfully", async () => {
   const stdout = new TextDecoder().decode(output.stdout);
   assertStringIncludes(stdout, "Starts a WebDAV server");
   assertStringIncludes(stdout, "Updates corresponding meta file");
-  assertStringIncludes(stdout, "Provides some more detailed output");
+  assertStringIncludes(stdout, "--log-level");
+  assertStringIncludes(stdout, "Enables debug logs");
   assertStringIncludes(stdout, "The editor to use when pressing the cloud editor icon");
   assertStringIncludes(stdout, "TD_PATH");
+  assertStringIncludes(stdout, "TD_LOG_LEVEL");
   assertStringIncludes(stdout, "TD_OPEN_IN_EDITOR");
   assertStringIncludes(stdout, "Command line options have precedence over environment variables");
   assertEquals(new TextDecoder().decode(output.stderr), "");

@@ -2,7 +2,7 @@ import { object } from "@optique/core/constructs";
 import { lineBreak, message } from "@optique/core/message";
 import { optional } from "@optique/core/modifiers";
 import { option } from "@optique/core/primitives";
-import { integer, string } from "@optique/core/valueparser";
+import { choice, integer, string } from "@optique/core/valueparser";
 import { type RunOptions, runSync } from "@optique/run";
 import { join } from "@std/path/join";
 
@@ -17,8 +17,10 @@ export type CliArgs = {
   "open-in-editor"?: string | true;
   "meta-touch"?: boolean;
   "no-auth-warning"?: boolean;
-  debug?: boolean;
+  "log-level"?: LogLevel;
 };
+
+type LogLevel = "debug" | "verbose";
 
 export type ExitCliCommand = {
   type: "exit";
@@ -36,7 +38,7 @@ export type ServeCliCommand = {
     & Required<Pick<CliArgs, "host" | "port">>
     & Pick<CliArgs, "path" | "username" | "password" | "open-in-editor">
     & {
-      debug: boolean;
+      "log-level"?: LogLevel;
       "meta-touch": boolean;
       "no-auth-warning": boolean;
     };
@@ -50,7 +52,7 @@ export function parseCliArgs(args: string[], options: RunOptions = {}): CliArgs 
     help: "option",
     brief: message`Starts a WebDAV server for Tampermonkey to sync scripts with.`,
     footer:
-      message`Environment variables: TD_PATH, TD_HOST, TD_PORT, TD_USERNAME, TD_PASSWORD, TD_META_TOUCH, TD_NO_AUTH_WARNING, TD_DEBUG, TD_OPEN_IN_EDITOR${lineBreak()}${lineBreak()}Command line options have precedence over environment variables.`,
+      message`Environment variables: TD_PATH, TD_HOST, TD_PORT, TD_USERNAME, TD_PASSWORD, TD_META_TOUCH, TD_NO_AUTH_WARNING, TD_LOG_LEVEL, TD_OPEN_IN_EDITOR${lineBreak()}${lineBreak()}Command line options have precedence over environment variables.`,
   });
 }
 
@@ -79,9 +81,9 @@ export function resolveCliCommand(
     return exit(noAuthWarning);
   }
 
-  const debug = resolveBooleanOption(cliArgs.debug, env.TD_DEBUG, "TD_DEBUG");
-  if (typeof debug === "string") {
-    return exit(debug);
+  const logLevel = resolveLogLevel(cliArgs["log-level"], env.TD_LOG_LEVEL);
+  if (typeof logLevel === "string" && !isLogLevel(logLevel)) {
+    return exit(logLevel);
   }
 
   const args = {
@@ -94,7 +96,7 @@ export function resolveCliCommand(
       parseOpenInEditorEnv(env.TD_OPEN_IN_EDITOR),
     "meta-touch": metaTouch ?? false,
     "no-auth-warning": noAuthWarning ?? false,
-    debug: debug ?? false,
+    "log-level": logLevel,
   };
 
   if (!args.path) {
@@ -141,8 +143,8 @@ const cliParser = object({
     description:
       message`Disables the warning regarding missing authentication due to missing username and password.`,
   })),
-  debug: optional(option("--debug", {
-    description: message`Provides some more detailed output for debugging purposes.`,
+  "log-level": optional(option("--log-level", choice(["debug", "verbose"]), {
+    description: message`Enables debug logs. Use verbose to include selected headers and bodies.`,
   })),
 });
 
@@ -210,6 +212,23 @@ function parseOpenInEditorEnv(value: string | undefined) {
 
 function parseOpenInEditorCli(value: string | true | undefined) {
   return value === defaultOpenInEditor ? true : value;
+}
+
+function resolveLogLevel(cliValue: LogLevel | undefined, envValue: string | undefined) {
+  if (cliValue !== undefined) {
+    return cliValue;
+  }
+  if (envValue === undefined || envValue === "") {
+    return undefined;
+  }
+  if (isLogLevel(envValue)) {
+    return envValue;
+  }
+  return "TD_LOG_LEVEL must be debug or verbose";
+}
+
+function isLogLevel(value: string): value is LogLevel {
+  return value === "debug" || value === "verbose";
 }
 
 function exit(stderr: string): ExitCliCommand {

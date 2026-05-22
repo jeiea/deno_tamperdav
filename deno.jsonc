@@ -9,7 +9,7 @@
     "fmt": "deno fmt",
     "lint": "deno lint",
     "check": "deno check",
-    "run": "deno run --unstable-no-legacy-abort -A mod.ts --path=dav --meta-touch --debug"
+    "run": "deno run --unstable-no-legacy-abort -A mod.ts --path=dav --meta-touch --log-level=debug"
   },
   "compilerOptions": {
     "noUncheckedIndexedAccess": true,

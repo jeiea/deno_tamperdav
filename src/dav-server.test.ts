@@ -2,7 +2,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { deadline } from "@std/async/deadline";
 import { delay } from "@std/async/delay";
 import { join } from "@std/path";
-import { stub } from "@std/testing/mock";
+import { setupIntegration } from "../test/setup-integration.ts";
 import { DavServer } from "./dav-server.ts";
 
 Deno.test("Given a server with files", async (test) => {
@@ -347,32 +347,26 @@ Deno.test("PROPFIND depth 0 returns only the requested collection", async () => 
 });
 
 Deno.test("debug verbose logs request and response details without sensitive headers", async () => {
-  const logs: string[] = [];
-  const debug = stub(console, "debug", (message?: unknown) => {
-    logs.push(`${message}`);
-  });
+  using integration = setupIntegration();
+  const { logs } = integration;
 
-  try {
-    await withDavServer(
-      { debug: true, verbose: true, username: "alice", password: "secret" },
-      async ({ request }) => {
-        const response = await request("/file.txt", {
-          method: "UNKNOWN",
-          headers: {
-            authorization: `Basic ${btoa("alice:secret")}`,
-            cursor: "123",
-          },
-        });
-        await response.text();
-        await delay(0);
-      },
-    );
-  } finally {
-    debug.restore();
-  }
+  await withDavServer(
+    { "log-level": "verbose", username: "alice", password: "secret" },
+    async ({ request }) => {
+      const response = await request("/file.txt", {
+        method: "UNKNOWN",
+        headers: {
+          authorization: `Basic ${btoa("alice:secret")}`,
+          cursor: "123",
+        },
+      });
+      await response.text();
+      await delay(0);
+    },
+  );
 
   const log = logs.join("\n");
-  assertStringIncludes(log, "UNKNOWN");
+  assertStringIncludes(log, "] UNKNOWN");
   assertStringIncludes(log, "/file.txt");
   assertStringIncludes(log, "405 Method Not Allowed");
   assertStringIncludes(log, "cursor: 123");

@@ -1,5 +1,5 @@
 import { resolve } from "@std/path/resolve";
-import { RequestDebugLogger } from "./adapters/debug-log.ts";
+import { type LogLevel, RequestDebugLogger } from "./adapters/debug-log.ts";
 import { launchEditor } from "./adapters/editor-launcher.ts";
 import { runDavApplicationCommand } from "./app/dav-application.ts";
 import {
@@ -13,8 +13,7 @@ import { createDenoFsResourceStore } from "./storage/deno-fs-resource-store.ts";
 import { FsSubscriber } from "./subscription/fs-subscriber.ts";
 
 export type DavServerOptions = {
-  debug?: boolean;
-  verbose?: boolean;
+  "log-level"?: LogLevel;
   username?: string;
   password?: string;
   "open-in-editor"?: string | boolean;
@@ -31,7 +30,9 @@ export class DavServer implements Disposable {
     this.#root = resolve(root);
     this.#subscriber = new FsSubscriber(this.#root);
     this.#compatibility = createTampermonkeySubscriptionState();
-    this.#debugLogger = args.debug ? new RequestDebugLogger({ verbose: args.verbose }) : undefined;
+    this.#debugLogger = args["log-level"]
+      ? new RequestDebugLogger({ verbose: args["log-level"] === "verbose" })
+      : undefined;
   }
 
   logAndHandleRequest = async (request: Request): Promise<Response> => {
