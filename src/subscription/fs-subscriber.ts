@@ -1,33 +1,9 @@
 import { debounce } from "@std/async/debounce";
 import { relative, resolve } from "@std/path";
-import { normalize } from "@std/path/posix";
+import { filterChangedPaths } from "./change-filter.ts";
+import type { Subscriber, SubscriptionRequest } from "./subscriber.ts";
 
-export type SubscriptionRequest = {
-  /** relative path */
-  path: string;
-  depth: number;
-  timeoutSeconds: number;
-  signal: AbortSignal;
-};
-
-export function toSubscription(request: Request): SubscriptionRequest {
-  return {
-    path: normalize(`${new URL(request.url).pathname}`.replace(/^\/+|\/+$/g, "")) || ".",
-    timeoutSeconds: getTimeoutSeconds(request),
-    depth: getDepth(request),
-    signal: request.signal,
-  };
-}
-
-function getTimeoutSeconds(request: Request) {
-  return (Number(request.headers.get("timeout")) || 60);
-}
-
-function getDepth(request: Request) {
-  return Number(request.headers.get("depth") ?? 0);
-}
-
-export class FsSubscriber implements Disposable {
+export class FsSubscriber implements Subscriber {
   readonly #root: string;
 
   readonly #changes = new Set<string>();
@@ -118,17 +94,10 @@ export class FsSubscriber implements Disposable {
     }
 
     for (const request of this.#requests) {
-      const paths = new Set<string>();
-
-      for (const path of this.#changes) {
-        const isSubPath = path.startsWith(`${request.path}/`) || request.path === ".";
-        const isNotRelated = path !== request.path && !isSubPath;
-        if (isNotRelated) {
-          continue;
-        }
-
-        paths.add(path);
-      }
+      const paths = filterChangedPaths({
+        requestedPath: request.path,
+        changedPaths: this.#changes,
+      });
 
       const resolver = this.#resolvers.get(request);
       if (!resolver || paths.size === 0) {

@@ -2,7 +2,8 @@ import { assertEquals } from "@std/assert";
 import { resolve } from "@std/path";
 import { returnsNext, stub } from "@std/testing/mock";
 import { FakeTime } from "@std/testing/time";
-import { FsSubscriber, toSubscription } from "./subscription_handler.ts";
+import { FsSubscriber } from "./fs-subscriber.ts";
+import { toSubscription } from "./subscription-request.ts";
 
 Deno.test("Given plain request", async (test) => {
   const request = new Request(`http://localhost:8000/`);

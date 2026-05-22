@@ -14,7 +14,7 @@ async function main() {
 
   const directory = rest[0] as string;
   if (help || !directory) {
-    console.log(`Usage: deno run -A prune_scripts.ts [options] [directory]
+    console.log(`Usage: deno run -A prune-scripts.ts [options] [directory]
 Options:
   -d, --delete           Delete unused scripts
   -h, --help             Show this help

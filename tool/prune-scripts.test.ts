@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { copy } from "@std/fs";
 import { basename, join, resolve } from "@std/path";
-import { pruneScripts } from "./prune_scripts.ts";
+import { pruneScripts } from "./prune-scripts.ts";
 
 Deno.test("Given empty directory", async (test) => {
   const clone = await Deno.makeTempDir();
@@ -37,7 +37,7 @@ Deno.test("Given directory containing directory", async (test) => {
 });
 
 Deno.test("Given alive meta.json", async (test) => {
-  const template = resolve("./test/data/normal_meta");
+  const template = resolve("./test/data/normal-meta");
   const clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {
@@ -52,7 +52,7 @@ Deno.test("Given alive meta.json", async (test) => {
 });
 
 Deno.test("Given removed meta.json", async (test) => {
-  const template = resolve("./test/data/removed_meta");
+  const template = resolve("./test/data/removed-meta");
   const clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {
@@ -67,7 +67,7 @@ Deno.test("Given removed meta.json", async (test) => {
 });
 
 Deno.test("Given removed orphan meta.json", async (test) => {
-  const template = resolve("./test/data/removed_orphan_meta");
+  const template = resolve("./test/data/removed-orphan-meta");
   const clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {
@@ -82,7 +82,7 @@ Deno.test("Given removed orphan meta.json", async (test) => {
 });
 
 Deno.test("Given orphan meta.json", async (test) => {
-  const template = resolve("./test/data/orphan_meta");
+  const template = resolve("./test/data/orphan-meta");
   const clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {
@@ -97,7 +97,7 @@ Deno.test("Given orphan meta.json", async (test) => {
 });
 
 Deno.test("Given orphan user.js", async (test) => {
-  const template = resolve("./test/data/orphan_js");
+  const template = resolve("./test/data/orphan-js");
   const clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {

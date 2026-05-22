@@ -3,7 +3,7 @@ import { deadline } from "@std/async/deadline";
 import { delay } from "@std/async/delay";
 import { join } from "@std/path";
 import { stub } from "@std/testing/mock";
-import { DavServer } from "./dav_server.ts";
+import { DavServer } from "./dav-server.ts";
 
 Deno.test("Given a server with files", async (test) => {
   const root = await Deno.makeTempDir();
