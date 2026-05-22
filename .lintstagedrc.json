@@ -1,0 +1,5 @@
+{
+  "*.{ts,js,json,jsonc,md}": "deno fmt",
+  "*.{ts,js}": "deno lint",
+  "*.ts": "deno check"
+}

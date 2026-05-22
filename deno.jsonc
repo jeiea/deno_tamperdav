@@ -4,9 +4,8 @@
   },
   "tasks": {
     "hooks:install": "deno run --allow-read=deno.json,deno.jsonc,.git/hooks/ --allow-write=.git/hooks/ jsr:@hongminhee/deno-task-hooks",
-    "hooks:pre-commit": {
-      "dependencies": ["fmt", "lint", "check"]
-    },
+    "hooks:pre-commit": "deno task lint-staged",
+    "lint-staged": "deno run -A npm:lint-staged@17.0.5 --config .lintstagedrc.json",
     "fmt": "deno fmt",
     "lint": "deno lint",
     "check": "deno check",
