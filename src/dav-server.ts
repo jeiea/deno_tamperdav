@@ -17,7 +17,7 @@ export type DavServerOptions = {
   verbose?: boolean;
   username?: string;
   password?: string;
-  "open-in-editor"?: string;
+  "open-in-editor"?: string | boolean;
   "meta-touch"?: boolean;
 };
 

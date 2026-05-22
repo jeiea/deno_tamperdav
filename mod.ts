@@ -7,21 +7,20 @@ if (import.meta.main) {
 
 export async function main() {
   const cliArgs = parseCliArgs(Deno.args);
-  const config = String(cliArgs.config || "config.json");
-  const fileConfig = await readConfigFile(config);
   const command = resolveCliCommand({
     cliArgs,
-    fileConfig,
     env: {
+      TD_PATH: Deno.env.get("TD_PATH"),
+      TD_HOST: Deno.env.get("TD_HOST"),
+      TD_PORT: Deno.env.get("TD_PORT"),
       TD_USERNAME: Deno.env.get("TD_USERNAME"),
       TD_PASSWORD: Deno.env.get("TD_PASSWORD"),
+      TD_META_TOUCH: Deno.env.get("TD_META_TOUCH"),
+      TD_NO_AUTH_WARNING: Deno.env.get("TD_NO_AUTH_WARNING"),
+      TD_DEBUG: Deno.env.get("TD_DEBUG"),
+      TD_OPEN_IN_EDITOR: Deno.env.get("TD_OPEN_IN_EDITOR"),
     },
   });
-
-  if (command.type === "help") {
-    console.info(command.stdout);
-    return;
-  }
 
   if (command.type === "exit") {
     console.error(command.stderr);
@@ -50,16 +49,4 @@ export async function main() {
 
   console.info(`server is listening on ${command.port}`);
   return server;
-}
-
-async function readConfigFile(config: string): Promise<Record<string, unknown>> {
-  try {
-    return JSON.parse(await Deno.readTextFile(config));
-  } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
-      console.error(`${config}: ${error}`);
-      Deno.exit(1);
-    }
-  }
-  return {};
 }
