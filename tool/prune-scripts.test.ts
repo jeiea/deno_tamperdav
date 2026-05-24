@@ -97,7 +97,6 @@ Deno.test("Given orphan user.js", async (test) => {
 
 async function cloneDirectory(original: string): Promise<TempDir> {
   const directory = await createTempDir({
-    dir: resolve("./test/tmp"),
     prefix: basename(original),
   });
   await copy(original, directory.path, { overwrite: true });

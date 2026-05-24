@@ -9,7 +9,7 @@
     "fmt": "deno fmt",
     "lint": "deno lint",
     "check": "deno check",
-    "test": "deno test -A",
+    "test": "deno test -A --parallel",
     "run": "deno run --unstable-no-legacy-abort -A mod.ts --path=dav --meta-touch --log-level=debug"
   },
   "compilerOptions": {
