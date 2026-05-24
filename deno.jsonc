@@ -4,11 +4,12 @@
   },
   "tasks": {
     "hooks:install": "deno run --allow-read=deno.json,deno.jsonc,.git/hooks/ --allow-write=.git/hooks/ jsr:@hongminhee/deno-task-hooks",
-    "hooks:pre-commit": "deno task lint-staged",
+    "hooks:pre-commit": "deno task lint-staged && deno task test",
     "lint-staged": "deno run -A npm:lint-staged@17.0.5 --config .lintstagedrc.json",
     "fmt": "deno fmt",
     "lint": "deno lint",
     "check": "deno check",
+    "test": "deno test -A",
     "run": "deno run --unstable-no-legacy-abort -A mod.ts --path=dav --meta-touch --log-level=debug"
   },
   "compilerOptions": {
