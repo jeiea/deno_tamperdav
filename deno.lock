@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@jeiea/snippets@~0.1.1": "0.1.1",
     "jsr:@opensrc/deno-open@1": "1.0.0",
     "jsr:@optique/core@*": "1.0.2",
     "jsr:@optique/core@^1.0.2": "1.0.2",
@@ -26,6 +27,9 @@
     "npm:lint-staged@17.0.5": "17.0.5"
   },
   "jsr": {
+    "@jeiea/snippets@0.1.1": {
+      "integrity": "6d6b5743ec7277e767626653c5200e7df18ba164a2d6fb1e1cb8dde9671013f6"
+    },
     "@opensrc/deno-open@1.0.0": {
       "integrity": "590decada8cf2d50f4b35c7d3a8d642e18e45d6e47078ea02a4dbf0096bbf9fd",
       "dependencies": [
@@ -281,6 +285,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@jeiea/snippets@~0.1.1",
       "jsr:@opensrc/deno-open@1",
       "jsr:@optique/core@^1.0.2",
       "jsr:@optique/run@^1.0.2",

@@ -1,122 +1,106 @@
 import { assertEquals } from "@std/assert";
+import { createTempDir, type TempDir } from "@jeiea/snippets";
 import { copy } from "@std/fs";
 import { basename, join, resolve } from "@std/path";
 import { pruneScripts } from "./prune-scripts.ts";
 
 Deno.test("Given empty directory", async (test) => {
-  const clone = await Deno.makeTempDir();
+  await using clone = await createTempDir();
 
   await test.step("when prune", async (test) => {
-    await pruneScripts(clone);
+    await pruneScripts(clone.path);
 
     await test.step("it should be empty", async () => {
-      assertEquals(await snapshotDirectory(clone), []);
+      assertEquals(await snapshotDirectory(clone.path), []);
     });
   });
-
-  await Deno.remove(clone, { recursive: true });
 });
 
 Deno.test("Given directory containing directory", async (test) => {
-  const original = await Deno.makeTempDir();
-  await Deno.mkdir(join(original, "test"));
-  const clone = await cloneDirectory(original);
+  await using original = await createTempDir();
+  await Deno.mkdir(join(original.path, "test"));
+  await using clone = await cloneDirectory(original.path);
 
   await test.step("when prune", async (test) => {
-    await pruneScripts(clone);
+    await pruneScripts(clone.path);
 
     await test.step("it should be empty", async () => {
-      await assertDirectoryEquals(clone, original);
+      await assertDirectoryEquals(clone.path, original.path);
     });
   });
-
-  await Promise.all([
-    Deno.remove(original, { recursive: true }),
-    Deno.remove(clone, { recursive: true }),
-  ]);
 });
 
 Deno.test("Given alive meta.json", async (test) => {
   const template = resolve("./test/data/normal-meta");
-  const clone = await cloneDirectory(template);
+  await using clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {
-    await pruneScripts(clone);
+    await pruneScripts(clone.path);
 
     await test.step("it should preserve all", async () => {
-      await assertDirectoryEquals(clone, template);
+      await assertDirectoryEquals(clone.path, template);
     });
   });
-
-  await Deno.remove(clone, { recursive: true });
 });
 
 Deno.test("Given removed meta.json", async (test) => {
   const template = resolve("./test/data/removed-meta");
-  const clone = await cloneDirectory(template);
+  await using clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {
-    await pruneScripts(clone);
+    await pruneScripts(clone.path);
 
     await test.step("it should remove all", async () => {
-      assertEquals(await snapshotDirectory(clone), []);
+      assertEquals(await snapshotDirectory(clone.path), []);
     });
   });
-
-  await Deno.remove(clone, { recursive: true });
 });
 
 Deno.test("Given removed orphan meta.json", async (test) => {
   const template = resolve("./test/data/removed-orphan-meta");
-  const clone = await cloneDirectory(template);
+  await using clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {
-    await pruneScripts(clone);
+    await pruneScripts(clone.path);
 
     await test.step("it should remove it", async () => {
-      assertEquals(await snapshotDirectory(clone), []);
+      assertEquals(await snapshotDirectory(clone.path), []);
     });
   });
-
-  await Deno.remove(clone, { recursive: true });
 });
 
 Deno.test("Given orphan meta.json", async (test) => {
   const template = resolve("./test/data/orphan-meta");
-  const clone = await cloneDirectory(template);
+  await using clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {
-    await pruneScripts(clone);
+    await pruneScripts(clone.path);
 
     await test.step("it should remove it", async () => {
-      assertEquals(await snapshotDirectory(clone), []);
+      assertEquals(await snapshotDirectory(clone.path), []);
     });
   });
-
-  await Deno.remove(clone, { recursive: true });
 });
 
 Deno.test("Given orphan user.js", async (test) => {
   const template = resolve("./test/data/orphan-js");
-  const clone = await cloneDirectory(template);
+  await using clone = await cloneDirectory(template);
 
   await test.step("when prune", async (test) => {
-    await pruneScripts(clone);
+    await pruneScripts(clone.path);
 
     await test.step("it should remove it", async () => {
-      assertEquals(await snapshotDirectory(clone), []);
+      assertEquals(await snapshotDirectory(clone.path), []);
     });
   });
-
-  await Deno.remove(clone, { recursive: true });
 });
 
-async function cloneDirectory(original: string) {
-  const directory = await Deno.makeTempDir({
+async function cloneDirectory(original: string): Promise<TempDir> {
+  const directory = await createTempDir({
     dir: resolve("./test/tmp"),
     prefix: basename(original),
   });
-  await copy(original, directory, { overwrite: true });
+  await copy(original, directory.path, { overwrite: true });
   return directory;
 }
 

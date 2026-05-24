@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
+import { createTempDir } from "@jeiea/snippets";
 import { join, resolve } from "@std/path";
 import { runDavApplicationCommand } from "./dav-application.ts";
 import { createTampermonkeySubscriptionState } from "../compatibility/tampermonkey-subscription.ts";
@@ -23,113 +24,101 @@ Deno.test("runDavApplicationCommand returns OPTIONS capabilities from app config
 });
 
 Deno.test("runDavApplicationCommand refreshes SUBSCRIBE with a list response after compatibility delay", async () => {
-  const root = await Deno.makeTempDir();
-  try {
-    await Deno.writeTextFile(join(root, "file.txt"), "Hello");
+  await using root = await createTempDir();
+  await Deno.writeTextFile(join(root.path, "file.txt"), "Hello");
 
-    const response = await runDavApplicationCommand(
-      {
-        type: "subscribe",
-        path: { pathname: "/" },
-        depth: 0,
-        refreshDepth: 1,
-        timeoutSeconds: 60,
-        signal: new AbortController().signal,
-      },
-      baseContext({
-        root,
-        store: createDenoFsResourceStore(root),
-        compatibility: createTampermonkeySubscriptionState({
-          immediateCount: 0,
-          lastSubscribeAt: 0,
-        }),
-        now: () => new Date(12_000),
-        subscriber: {
-          subscribe: () => {
-            throw new Error("subscriber should not be used for refresh");
-          },
-          [Symbol.dispose]: () => {},
-        },
+  const response = await runDavApplicationCommand(
+    {
+      type: "subscribe",
+      path: { pathname: "/" },
+      depth: 0,
+      refreshDepth: 1,
+      timeoutSeconds: 60,
+      signal: new AbortController().signal,
+    },
+    baseContext({
+      root: root.path,
+      store: createDenoFsResourceStore(root.path),
+      compatibility: createTampermonkeySubscriptionState({
+        immediateCount: 0,
+        lastSubscribeAt: 0,
       }),
-    );
+      now: () => new Date(12_000),
+      subscriber: {
+        subscribe: () => {
+          throw new Error("subscriber should not be used for refresh");
+        },
+        [Symbol.dispose]: () => {},
+      },
+    }),
+  );
 
-    assertEquals(response.type, "multistatus");
-    if (response.type === "multistatus") {
-      assertEquals(response.resources.map((resource) => resource.href), ["/", "/file.txt"]);
-    }
-  } finally {
-    await Deno.remove(root, { recursive: true });
+  assertEquals(response.type, "multistatus");
+  if (response.type === "multistatus") {
+    assertEquals(response.resources.map((resource) => resource.href), ["/", "/file.txt"]);
   }
 });
 
 Deno.test("runDavApplicationCommand opens an existing file through the editor launcher", async () => {
-  const root = await Deno.makeTempDir();
+  await using root = await createTempDir();
   const launched: Array<{ path: string; app: string }> = [];
-  try {
-    await Deno.writeTextFile(join(root, "script.user.js"), "console.log('hi')");
+  await Deno.writeTextFile(join(root.path, "script.user.js"), "console.log('hi')");
 
-    const response = await runDavApplicationCommand(
-      {
-        type: "openEditor",
-        path: { pathname: "/script.user.js" },
-        host: "localhost:7000",
+  const response = await runDavApplicationCommand(
+    {
+      type: "openEditor",
+      path: { pathname: "/script.user.js" },
+      host: "localhost:7000",
+    },
+    baseContext({
+      root: root.path,
+      store: createDenoFsResourceStore(root.path),
+      openInEditor: true,
+      os: "windows",
+      launchEditor: (path, { app }) => {
+        launched.push({ path, app });
       },
-      baseContext({
-        root,
-        store: createDenoFsResourceStore(root),
-        openInEditor: true,
-        os: "windows",
-        launchEditor: (path, { app }) => {
-          launched.push({ path, app });
-        },
-      }),
-    );
+    }),
+  );
 
-    assertEquals(response.type, "empty");
-    assertEquals(response.status, 302);
-    assertEquals(response.headers, { Location: "dav://localhost:7000/script.user.js" });
-    assertEquals(launched, [{ path: resolve(root, "script.user.js"), app: "notepad" }]);
-  } finally {
-    await Deno.remove(root, { recursive: true });
-  }
+  assertEquals(response.type, "empty");
+  assertEquals(response.status, 302);
+  assertEquals(response.headers, { Location: "dav://localhost:7000/script.user.js" });
+  assertEquals(launched, [{ path: resolve(root.path, "script.user.js"), app: "notepad" }]);
 });
 
 Deno.test("runDavApplicationCommand returns changed script and touched meta file", async () => {
-  const root = await Deno.makeTempDir();
-  try {
-    await Deno.writeTextFile(join(root, "script.user.js"), "console.log('hi')");
-    await Deno.writeTextFile(join(root, "script.meta.json"), "{}");
+  await using root = await createTempDir();
+  await Deno.writeTextFile(join(root.path, "script.user.js"), "console.log('hi')");
+  await Deno.writeTextFile(join(root.path, "script.meta.json"), "{}");
 
-    const response = await runDavApplicationCommand(
-      {
-        type: "subscribe",
-        path: { pathname: "/" },
-        depth: 0,
-        refreshDepth: 1,
-        timeoutSeconds: 60,
-        signal: new AbortController().signal,
-      },
-      baseContext({
-        root,
-        store: createDenoFsResourceStore(root),
-        compatibility: createTampermonkeySubscriptionState({ immediateCount: 0 }),
-        metaTouch: true,
-        subscriber: resolvedSubscriber(new Set(["script.user.js"])),
-        now: () => new Date(10_000),
-      }),
-    );
+  const response = await runDavApplicationCommand(
+    {
+      type: "subscribe",
+      path: { pathname: "/" },
+      depth: 0,
+      refreshDepth: 1,
+      timeoutSeconds: 60,
+      signal: new AbortController().signal,
+    },
+    baseContext({
+      root: root.path,
+      store: createDenoFsResourceStore(root.path),
+      compatibility: createTampermonkeySubscriptionState({ immediateCount: 0 }),
+      metaTouch: true,
+      subscriber: resolvedSubscriber(new Set(["script.user.js"])),
+      now: () => new Date(10_000),
+    }),
+  );
 
-    assertEquals(response.type, "multistatus");
-    if (response.type !== "multistatus") {
-      return;
-    }
-
-    const hrefs = response.resources.map((resource) => resource.href);
-    assertStringIncludes(hrefs.join("\n"), "/script.user.js");
-    assertStringIncludes(hrefs.join("\n"), "/script.meta.json");
-  } finally {
-    await Deno.remove(root, { recursive: true });
+  assertEquals(response.type, "multistatus");
+  if (response.type !== "multistatus") {
+    return;
   }
+
+  const hrefs = response.resources.map((resource) => resource.href);
+  assertStringIncludes(hrefs.join("\n"), "/script.user.js");
+  assertStringIncludes(hrefs.join("\n"), "/script.meta.json");
 });
 
 function baseContext(

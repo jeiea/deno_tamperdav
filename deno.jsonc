@@ -17,6 +17,7 @@
   },
   "exclude": ["dav", "test/data"],
   "imports": {
+    "@jeiea/snippets": "jsr:@jeiea/snippets@^0.1.1",
     "@opensrc/deno-open": "jsr:@opensrc/deno-open@^1.0.0",
     "@optique/core": "jsr:@optique/core@^1.0.2",
     "@optique/run": "jsr:@optique/run@^1.0.2",

@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
+import { createTempDir } from "@jeiea/snippets";
 import { deadline } from "@std/async/deadline";
 import { delay } from "@std/async/delay";
 import { join } from "@std/path";
@@ -6,14 +7,14 @@ import { setupIntegration } from "../test/setup-integration.ts";
 import { DavServer } from "./dav-server.ts";
 
 Deno.test("Given a server with files", async (test) => {
-  const root = await Deno.makeTempDir();
-  const file = join(root, "test.txt");
+  await using root = await createTempDir();
+  const file = join(root.path, "test.txt");
   await Deno.writeTextFile(file, "Hello, world!");
-  await Deno.mkdir(join(root, "Tampermonkey/sync"), { recursive: true });
-  await Deno.writeTextFile(`${root}/Tampermonkey/sync/test2.js`, "Hello, script!");
+  await Deno.mkdir(join(root.path, "Tampermonkey/sync"), { recursive: true });
+  await Deno.writeTextFile(`${root.path}/Tampermonkey/sync/test2.js`, "Hello, script!");
 
-  const handler = new DavServer(root, {});
-  const server = Deno.serve({ port: 0 }, handler.logAndHandleRequest);
+  using handler = new DavServer(root.path, {});
+  await using server = Deno.serve({ port: 0 }, handler.logAndHandleRequest);
   const { port } = server.addr;
 
   await test.step("when PROPFIND", async (test) => {
@@ -29,18 +30,15 @@ Deno.test("Given a server with files", async (test) => {
       assertStringIncludes(xml, "<d:href>/Tampermonkey/sync/test2.js</d:href>");
     });
   });
-
-  await server.shutdown();
-  await Deno.remove(root, { recursive: true });
 });
 
 Deno.test("Given fresh server", async (test) => {
-  const root = await Deno.makeTempDir();
-  const file = join(root, "test.txt");
+  await using root = await createTempDir();
+  const file = join(root.path, "test.txt");
   await Deno.writeTextFile(file, "Hello, world!");
 
-  using handler = new DavServer(root, {});
-  const server = Deno.serve({ port: 0 }, handler.logAndHandleRequest);
+  using handler = new DavServer(root.path, {});
+  await using server = Deno.serve({ port: 0 }, handler.logAndHandleRequest);
   const { port } = server.addr;
 
   await test.step("when subscribe 4 times", async (test) => {
@@ -74,9 +72,6 @@ Deno.test("Given fresh server", async (test) => {
       assertStringIncludes(xml, "<d:href>/test.txt</d:href>");
     });
   });
-
-  await server.shutdown();
-  await Deno.remove(root, { recursive: true });
 });
 
 Deno.test("OPTIONS returns Tampermonkey WebDAV capability headers", async () => {
@@ -387,32 +382,26 @@ async function withDavServer(
   args: ConstructorParameters<typeof DavServer>[1],
   fn: (server: TestServer) => Promise<void>,
 ) {
-  const root = await Deno.makeTempDir();
-  const handler = new DavServer(root, args);
-  const server = Deno.serve({ port: 0 }, handler.logAndHandleRequest);
+  await using root = await createTempDir();
+  using handler = new DavServer(root.path, args);
+  await using server = Deno.serve({ port: 0 }, handler.logAndHandleRequest);
   const { port } = server.addr;
   const origin = `http://localhost:${port}`;
 
-  try {
-    await fn({
-      root,
-      origin,
-      request: (path, init) => fetch(`${origin}${path}`, init),
-      rawRequest: async (path) => {
-        const conn = await Deno.connect({ hostname: "127.0.0.1", port });
-        await conn.write(
-          new TextEncoder().encode(
-            `GET ${path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n`,
-          ),
-        );
-        return await new Response(conn.readable).text();
-      },
-    });
-  } finally {
-    await server.shutdown();
-    handler[Symbol.dispose]();
-    await Deno.remove(root, { recursive: true });
-  }
+  await fn({
+    root: root.path,
+    origin,
+    request: (path, init) => fetch(`${origin}${path}`, init),
+    rawRequest: async (path) => {
+      const conn = await Deno.connect({ hostname: "127.0.0.1", port });
+      await conn.write(
+        new TextEncoder().encode(
+          `GET ${path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n`,
+        ),
+      );
+      return await new Response(conn.readable).text();
+    },
+  });
 }
 
 function assertMultistatusXml(xml: string) {
