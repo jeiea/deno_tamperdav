@@ -14,7 +14,12 @@ import type { MetaFileToucher } from "../storage/meta-file-touch.ts";
 import { touchMetaFiles } from "../storage/meta-file-touch.ts";
 import { filesToMultistatusResources } from "../storage/multistatus-resources.ts";
 import type { ResourceStore } from "../storage/resource-store.ts";
+import { filterChangedPaths } from "../subscription/change-filter.ts";
 import type { Subscriber, SubscriptionRequest } from "../subscription/subscriber.ts";
+import {
+  findDependentUserscripts,
+  rewriteUserscriptDependencyUrls,
+} from "../userscript/dependencies.ts";
 
 export type DavApplicationContext = {
   root: string;
@@ -38,7 +43,7 @@ export async function runDavApplicationCommand(
       return optionsModel(!!context.openInEditor);
     case "read":
       recordGet(context.compatibility);
-      return await runCommand(command, context);
+      return await runReadCommand(command, context);
     case "subscribe":
       return await runSubscribeCommand(command, context);
     case "openEditor":
@@ -51,6 +56,28 @@ export async function runDavApplicationCommand(
     case "unknown":
       return await runCommand(command, context);
   }
+}
+
+async function runReadCommand(
+  command: Extract<WebDavCommand, { type: "read" }>,
+  context: DavApplicationContext,
+): Promise<ResponseModel> {
+  const response = await runCommand(command, context);
+  if (
+    response.type !== "body" || response.status !== 200 ||
+    !command.path.pathname.endsWith(".user.js")
+  ) {
+    return response;
+  }
+
+  return {
+    ...response,
+    body: await rewriteUserscriptDependencyUrls(await new Response(response.body).text(), {
+      root: context.root,
+      scriptPathname: command.path.pathname,
+      origin: command.origin,
+    }),
+  };
 }
 
 function optionsModel(openInEditor: boolean): ResponseModel {
@@ -112,9 +139,20 @@ async function runSubscribeCommand(
       }
     } while (relatives.every((path) => path.endsWith(".meta.json")));
 
+    const dependents = filterChangedPaths({
+      requestedPath: subscription.path,
+      changedPaths: await findDependentUserscripts({ root: context.root, changedPaths: relatives }),
+    });
+    relatives = [...new Set([...relatives, ...dependents])];
+
     if (context.metaTouch) {
       const touchMeta = context.touchMeta ?? touchMetaFiles;
-      relatives.push(...await touchMeta(relatives, { root: context.root, date: now }));
+      relatives = [
+        ...new Set([
+          ...relatives,
+          ...await touchMeta(relatives, { root: context.root, date: now }),
+        ]),
+      ];
     }
 
     const absolutes = relatives.map((path) => resolve(context.root, path));

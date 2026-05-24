@@ -35,6 +35,20 @@ Deno.test("parseWebDavCommand parses PUT as a write command", () => {
   }
 });
 
+Deno.test("parseWebDavCommand parses GET origin for userscript dependency URLs", () => {
+  const command = parseWebDavCommand(
+    new Request("http://localhost:7000/script.user.js?tdv=1", {
+      method: "GET",
+    }),
+  );
+
+  assertEquals(command, {
+    type: "read",
+    path: { pathname: "/script.user.js" },
+    origin: "http://localhost:7000",
+  });
+});
+
 Deno.test("parseWebDavCommand preserves unknown methods", () => {
   const command = parseWebDavCommand(
     new Request("http://localhost:7000/script.user.js", {

@@ -4,7 +4,7 @@ import { toResourcePath } from "../domain/resource-path.ts";
 export type WebDavCommand =
   | { type: "options"; path: ResourcePath }
   | { type: "list"; path: ResourcePath; depth: number }
-  | { type: "read"; path: ResourcePath }
+  | { type: "read"; path: ResourcePath; origin: string }
   | { type: "head"; path: ResourcePath }
   | {
     type: "write";
@@ -36,7 +36,7 @@ export function parseWebDavCommand(request: Request): WebDavCommand {
     case "PROPFIND":
       return { type: "list", path, depth: Number(request.headers.get("depth") ?? 1) };
     case "GET":
-      return { type: "read", path };
+      return { type: "read", path, origin: new URL(request.url).origin };
     case "HEAD":
       return { type: "head", path };
     case "PUT":

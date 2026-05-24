@@ -168,6 +168,42 @@ Deno.test("GET returns an existing file as octet stream", async () => {
   });
 });
 
+Deno.test("GET rewrites relative userscript dependencies to server URLs", async () => {
+  await withDavServer({}, async ({ root, origin, request }) => {
+    await Deno.mkdir(join(root, "scripts", "assets"), { recursive: true });
+    await Deno.writeTextFile(join(root, "scripts", "lib.js"), "export {}");
+    await Deno.writeTextFile(join(root, "scripts", "assets", "style.css"), "");
+    await Deno.writeTextFile(
+      join(root, "scripts", "demo.user.js"),
+      [
+        "// ==UserScript==",
+        "// @name Demo",
+        "// @require ./lib.js?x=1&v=keep#ready",
+        "// @resource style assets/style.css",
+        "// ==/UserScript==",
+        "console.log('demo');",
+      ].join("\n"),
+    );
+    const libStat = await Deno.stat(join(root, "scripts", "lib.js"));
+    const styleStat = await Deno.stat(join(root, "scripts", "assets", "style.css"));
+
+    const response = await request("/scripts/demo.user.js", { method: "GET" });
+    const script = await response.text();
+
+    assertEquals(response.status, 200);
+    assertStringIncludes(
+      script,
+      `// @require ${origin}/scripts/lib.js?x=1&v=keep&tdv=${libStat.mtime?.getTime() ?? 0}#ready`,
+    );
+    assertStringIncludes(
+      script,
+      `// @resource style ${origin}/scripts/assets/style.css?tdv=${
+        styleStat.mtime?.getTime() ?? 0
+      }`,
+    );
+  });
+});
+
 Deno.test("GET returns 404 for a missing file", async () => {
   await withDavServer({}, async ({ request }) => {
     const response = await request("/missing.txt", { method: "GET" });
@@ -176,6 +212,45 @@ Deno.test("GET returns 404 for a missing file", async () => {
     assertEquals(response.statusText, "Not Found");
     assertEquals(response.headers.get("DAV"), "1");
     assertEquals(await response.text(), "");
+  });
+});
+
+Deno.test("SUBSCRIBE reports dependent userscripts when a relative dependency changes", async () => {
+  await withDavServer({}, async ({ root, request }) => {
+    await Deno.mkdir(join(root, "Tampermonkey", "sync"), { recursive: true });
+    const script = join(root, "Tampermonkey", "sync", "demo.user.js");
+    const dependency = join(root, "Tampermonkey", "sync", "lib.js");
+    await Deno.writeTextFile(
+      script,
+      [
+        "// ==UserScript==",
+        "// @name Demo",
+        "// @require ./lib.js",
+        "// ==/UserScript==",
+        "console.log('demo');",
+      ].join("\n"),
+    );
+    await Deno.writeTextFile(dependency, "export const value = 1;");
+
+    await deadline(
+      Promise.all([
+        request("/Tampermonkey/sync", { method: "SUBSCRIBE" }),
+        request("/Tampermonkey/sync", { method: "SUBSCRIBE" }),
+        request("/Tampermonkey/sync", { method: "SUBSCRIBE" }),
+        request("/Tampermonkey/sync", { method: "SUBSCRIBE" }),
+      ]),
+      1000,
+    );
+
+    const responsePromise = request("/Tampermonkey/sync", { method: "SUBSCRIBE" });
+    await delay(800);
+    await Deno.writeTextFile(dependency, "export const value = 2;");
+    const response = await deadline(responsePromise, 1000);
+    const xml = await response.text();
+
+    assertEquals(response.status, 207);
+    assertStringIncludes(xml, "<d:href>/Tampermonkey/sync/lib.js</d:href>");
+    assertStringIncludes(xml, "<d:href>/Tampermonkey/sync/demo.user.js</d:href>");
   });
 });
 

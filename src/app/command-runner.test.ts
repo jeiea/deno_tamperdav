@@ -22,7 +22,7 @@ Deno.test("runCommand reads resources through a ResourceStore", async () => {
   await using root = await createTempDir();
   await Deno.writeTextFile(join(root.path, "file.txt"), "Hello");
   const response = await runCommand(
-    { type: "read", path: { pathname: "/file.txt" } },
+    { type: "read", path: { pathname: "/file.txt" }, origin: "http://localhost" },
     { store: createDenoFsResourceStore(root.path) },
   );
 

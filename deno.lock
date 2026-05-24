@@ -2,6 +2,7 @@
   "version": "5",
   "specifiers": {
     "jsr:@jeiea/snippets@~0.1.1": "0.1.1",
+    "jsr:@jeiea/userscript-metadata@0.2": "0.2.0",
     "jsr:@opensrc/deno-open@1": "1.0.0",
     "jsr:@optique/core@*": "1.0.2",
     "jsr:@optique/core@^1.0.2": "1.0.2",
@@ -29,6 +30,9 @@
   "jsr": {
     "@jeiea/snippets@0.1.1": {
       "integrity": "6d6b5743ec7277e767626653c5200e7df18ba164a2d6fb1e1cb8dde9671013f6"
+    },
+    "@jeiea/userscript-metadata@0.2.0": {
+      "integrity": "d116e8f5fd3096dc534b3f4e3c0be20031cc54aac8229b786f0db7d4797a817d"
     },
     "@opensrc/deno-open@1.0.0": {
       "integrity": "590decada8cf2d50f4b35c7d3a8d642e18e45d6e47078ea02a4dbf0096bbf9fd",
@@ -286,6 +290,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@jeiea/snippets@~0.1.1",
+      "jsr:@jeiea/userscript-metadata@0.2",
       "jsr:@opensrc/deno-open@1",
       "jsr:@optique/core@^1.0.2",
       "jsr:@optique/run@^1.0.2",
