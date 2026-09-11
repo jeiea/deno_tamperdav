@@ -40,7 +40,9 @@ export class DavServer implements Disposable {
     try {
       const responsePromise = this.#handleRequest(request);
 
-      this.#debugLogger?.log(request, responsePromise);
+      if (this.#debugLogger) {
+        void this.#debugLogger.log(request, responsePromise).catch(() => {});
+      }
 
       response = await responsePromise;
     } catch (error) {

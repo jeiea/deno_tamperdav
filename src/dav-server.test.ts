@@ -446,6 +446,24 @@ Deno.test("debug verbose logs request and response details without sensitive hea
   assertEquals(log.includes("secret"), false);
 });
 
+Deno.test("debug logging does not leak abort rejections from canceled SUBSCRIBE", async () => {
+  using _integration = setupIntegration();
+  await using root = await createTempDir();
+  using handler = new DavServer(root.path, { "log-level": "debug" });
+  const controller = new AbortController();
+  const reason = new DOMException("The request has been cancelled.", "AbortError");
+  controller.abort(reason);
+  const request = new Request("http://localhost/Tampermonkey/sync/", {
+    method: "SUBSCRIBE",
+    signal: controller.signal,
+  });
+
+  const response = await handler.logAndHandleRequest(request);
+  await delay(0);
+
+  assertEquals(response.status, 500);
+});
+
 type TestServer = {
   root: string;
   origin: string;
