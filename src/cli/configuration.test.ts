@@ -35,6 +35,7 @@ Deno.test("CLI configuration resolves serve options from CLI and env", () => {
       "log-level": "verbose",
       "meta-touch": true,
       "no-auth-warning": true,
+      "no-startup-reconcile": false,
       "open-in-editor": "code",
       host: "0.0.0.0",
       password: "env-password",
@@ -43,6 +44,20 @@ Deno.test("CLI configuration resolves serve options from CLI and env", () => {
       username: "cli-user",
     },
   });
+});
+
+Deno.test("CLI rejects an invalid startup reconciliation environment value", () => {
+  assertEquals(
+    resolveCliCommand({
+      cliArgs: parseCliArgs(["--path=dav"]),
+      env: { TD_NO_STARTUP_RECONCILE: "invalid" },
+    }),
+    {
+      type: "exit",
+      code: 1,
+      stderr: "TD_NO_STARTUP_RECONCILE must be a boolean",
+    },
+  );
 });
 
 Deno.test("CLI configuration fills serve options from env", () => {

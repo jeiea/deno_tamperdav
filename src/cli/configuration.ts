@@ -17,6 +17,7 @@ export type CliArgs = {
   "open-in-editor"?: string | true;
   "meta-touch"?: boolean;
   "no-auth-warning"?: boolean;
+  "no-startup-reconcile"?: boolean;
   "log-level"?: LogLevel;
 };
 
@@ -41,6 +42,7 @@ export type ServeCliCommand = {
       "log-level"?: LogLevel;
       "meta-touch": boolean;
       "no-auth-warning": boolean;
+      "no-startup-reconcile": boolean;
     };
 };
 
@@ -52,7 +54,7 @@ export function parseCliArgs(args: string[], options: RunOptions = {}): CliArgs 
     help: "option",
     brief: message`Starts a WebDAV server for Tampermonkey to sync scripts with.`,
     footer:
-      message`Environment variables: TD_PATH, TD_HOST, TD_PORT, TD_USERNAME, TD_PASSWORD, TD_META_TOUCH, TD_NO_AUTH_WARNING, TD_LOG_LEVEL, TD_OPEN_IN_EDITOR${lineBreak()}${lineBreak()}Command line options have precedence over environment variables.`,
+      message`Environment variables: TD_PATH, TD_HOST, TD_PORT, TD_USERNAME, TD_PASSWORD, TD_META_TOUCH, TD_NO_AUTH_WARNING, TD_NO_STARTUP_RECONCILE, TD_LOG_LEVEL, TD_OPEN_IN_EDITOR${lineBreak()}${lineBreak()}Command line options have precedence over environment variables.`,
   });
 }
 
@@ -81,6 +83,15 @@ export function resolveCliCommand(
     return exit(noAuthWarning);
   }
 
+  const noStartupReconcile = resolveBooleanOption(
+    cliArgs["no-startup-reconcile"],
+    env.TD_NO_STARTUP_RECONCILE,
+    "TD_NO_STARTUP_RECONCILE",
+  );
+  if (typeof noStartupReconcile === "string") {
+    return exit(noStartupReconcile);
+  }
+
   const logLevel = resolveLogLevel(cliArgs["log-level"], env.TD_LOG_LEVEL);
   if (typeof logLevel === "string" && !isLogLevel(logLevel)) {
     return exit(logLevel);
@@ -96,6 +107,7 @@ export function resolveCliCommand(
       parseOpenInEditorEnv(env.TD_OPEN_IN_EDITOR),
     "meta-touch": metaTouch ?? false,
     "no-auth-warning": noAuthWarning ?? false,
+    "no-startup-reconcile": noStartupReconcile ?? false,
     "log-level": logLevel,
   };
 
@@ -142,6 +154,10 @@ const cliParser = object({
   "no-auth-warning": optional(option("--no-auth-warning", {
     description:
       message`Disables the warning regarding missing authentication due to missing username and password.`,
+  })),
+  "no-startup-reconcile": optional(option("--no-startup-reconcile", {
+    description:
+      message`Disables startup creation of missing metadata and deletion of scripts marked as removed.`,
   })),
   "log-level": optional(option("--log-level", choice(["debug", "verbose"]), {
     description: message`Enables debug logs. Use verbose to include selected headers and bodies.`,

@@ -1,5 +1,6 @@
 import { DavServer } from "./src/dav-server.ts";
 import { parseCliArgs, resolveCliCommand } from "./src/cli/configuration.ts";
+import { reconcileStartupScripts } from "./src/storage/startup-reconcile.ts";
 
 if (import.meta.main) {
   main();
@@ -17,6 +18,7 @@ export async function main() {
       TD_PASSWORD: Deno.env.get("TD_PASSWORD"),
       TD_META_TOUCH: Deno.env.get("TD_META_TOUCH"),
       TD_NO_AUTH_WARNING: Deno.env.get("TD_NO_AUTH_WARNING"),
+      TD_NO_STARTUP_RECONCILE: Deno.env.get("TD_NO_STARTUP_RECONCILE"),
       TD_LOG_LEVEL: Deno.env.get("TD_LOG_LEVEL"),
       TD_OPEN_IN_EDITOR: Deno.env.get("TD_OPEN_IN_EDITOR"),
     },
@@ -28,6 +30,10 @@ export async function main() {
   }
 
   await Deno.mkdir(command.root, { recursive: true });
+
+  if (!command.args["no-startup-reconcile"]) {
+    await reconcileStartupScripts(command.root);
+  }
 
   if (command.warnUnauthenticated) {
     console.warn(
