@@ -4,7 +4,7 @@ import { optional } from "@optique/core/modifiers";
 import { option } from "@optique/core/primitives";
 import { choice, integer, string } from "@optique/core/valueparser";
 import { type RunOptions, runSync } from "@optique/run";
-import { join } from "@std/path/join";
+import { normalize } from "@std/path/normalize";
 
 export type CliCommand = ExitCliCommand | ServeCliCommand;
 
@@ -117,7 +117,7 @@ export function resolveCliCommand(
 
   return {
     type: "serve",
-    root: join(".", String(args.path)),
+    root: normalize(args.path),
     host: String(args.host || "localhost"),
     port: Number(args.port || 7000),
     warnUnauthenticated: !args["no-auth-warning"] && (!args.username || !args.password),
